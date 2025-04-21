@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Brain Tumor Classifier</title>
+
+  <!-- Local Bootstrap CSS -->
+  <link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/bootstrap.min.css') }}"
+  />
+
+  <!-- Your custom styles -->
+  <link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/static.css') }}"
+  />
+</head>
+<body class="bg-light">
+
+  <div class="d-flex align-items-center justify-content-center min-vh-100">
+    <div class="card shadow-lg w-100 mw-600">
+      <div class="card-header bg-primary text-white text-center">
+        <h2 class="mb-0">🧠 Brain Tumor Classifier</h2>
+      </div>
+      <div class="card-body p-4">
+
+        <!-- Upload Form -->
+        <form
+          action="{{ url_for('upload_and_predict') }}"
+          method="post"
+          enctype="multipart/form-data"
+        >
+          <div class="mb-3 text-center">
+            <img
+              id="preview-img"
+              src="#"
+              alt="Preview"
+              class="img-fluid rounded preview-img d-none"
+            />
+          </div>
+
+          <div class="mb-3">
+            <label for="file" class="form-label">
+              Choose an MRI scan image
+            </label>
+            <input
+              id="file"
+              name="file"
+              class="form-control"
+              type="file"
+              accept="image/*"
+              required
+            />
+          </div>
+          <button type="submit" class="btn btn-success w-100">
+            Predict
+          </button>
+        </form>
+
+        <!-- Prediction Result -->
+        {% if prediction %}
+        <div class="alert alert-info mt-4 text-center result-box">
+          <h4>Result</h4>
+          <p>
+            <strong>Class:</strong>
+            <span class="fw-bold text-dark">{{ prediction.class }}</span>
+          </p>
+          <p>
+            <strong>Confidence:</strong>
+            {{ (prediction.confidence * 100)|round(1) }}%
+          </p>
+        </div>
+      {% endif %}
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Local Bootstrap JS Bundle (includes Popper) -->
+  <script
+    src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"
+  ></script>
+
+  <!-- Preview‐image script -->
+  <script>
+    const fileInput = document.getElementById('file');
+    const preview   = document.getElementById('preview-img');
+
+    fileInput.addEventListener('change', () => {
+      const [file] = fileInput.files;
+      if (file) {
+        preview.src = URL.createObjectURL(file);
+        preview.classList.remove('d-none');
+      }
+    });
+  </script>
+</body>
+</html>

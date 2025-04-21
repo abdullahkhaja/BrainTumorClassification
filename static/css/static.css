@@ -1,0 +1,32 @@
+/* Ensure card never exceeds 600px */
+.mw-600 {
+  max-width: 600px;
+}
+
+/* Make preview image tidy */
+.preview-img {
+  max-height: 300px;
+  object-fit: contain;
+  margin-bottom: 1rem;
+}
+
+/* Card tweaks */
+.card {
+  border: none;
+  border-radius: 0.75rem;
+}
+
+/* Footer smaller text */
+.card-footer {
+  font-size: 0.85rem;
+}
+
+/* On mobile, reduce side padding */
+@media (max-width: 576px) {
+  .card-body {
+    padding: 1rem;
+  }
+  .card-header h2 {
+    font-size: 1.5rem;
+  }
+}
