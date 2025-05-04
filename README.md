@@ -3,20 +3,21 @@
 ![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-This project fine‑tunes a pretrained **ResNet‑18** in PyTorch to classify brain MRI scans into tumor types, exports the trained model to **ONNX**, and deploys a fully static in‑browser demo via **ONNX Runtime Web** on **GitHub Pages**.
+This project fine-tunes a pretrained **ResNet-18** in PyTorch to classify brain MRI scans into tumor types, exports the trained model to **ONNX**, and deploys a fully static, in-browser demo via **ONNX Runtime Web**.
 
 ---
 
 ## Table of Contents
 
-- [Installation](#installation)  
-- [Dataset](#dataset)  
-- [Model Architecture](#model-architecture)  
-- [Training](#training)  
-- [Export to ONNX](#export-to-onnx)  
-- [Static Demo](#static-demo)  
-- [Project Structure](#project-structure)  
-- [License](#license)  
+- [Installation](#installation)
+- [Dataset](#dataset)
+- [Model Architecture](#model-architecture)
+- [Training](#training)
+- [Export to ONNX](#export-to-onnx)
+- [Static Demo](#static-demo)
+- [Usage](#usage)
+- [Project Structure](#project-structure)
+- [License](#license)
 
 ---
 
@@ -32,16 +33,16 @@ pip install torch torchvision kagglehub numpy scikit-learn matplotlib seaborn tq
 
 ## Dataset
 
-The **Brain Tumor MRI Scans** dataset (Kaggle) contains four classes:
+The **Brain Tumor MRI Scans** dataset from Kaggle contains four classes:
 
-| Class      | Description       |
-|------------|-------------------|
-| Glioma     | Tumor             |
-| Healthy    | No tumor present  |
-| Meningioma | Tumor             |
-| Pituitary  | Tumor             |
+| Class      | Description      |
+|------------|------------------|
+| Glioma     | Tumor            |
+| Healthy    | No tumor present |
+| Meningioma | Tumor            |
+| Pituitary  | Tumor            |
 
-The dataset is downloaded automatically inside `model/train.py`:
+The dataset is downloaded automatically in `model/train.py`:
 
 ```python
 import kagglehub
@@ -53,10 +54,20 @@ print("Data downloaded to:", path)
 
 ## Model Architecture
 
-| Phase | Layers Trained   | Epochs | Learning Rate |
-|-------|------------------|--------|---------------|
-| 1     | `fc` only        |   5    | 1 × 10⁻³      |
-| 2     | `layer4` + `fc`  |  15    | 1 × 10⁻⁵      |
+We start with a pretrained **ResNet-18** and adapt it in two phases:
+
+| Phase | What we train            | Details                                                                 |
+|-------|--------------------------|-------------------------------------------------------------------------|
+| 1     | **Final fully connected layer only**     | - Freeze all convolutional layers<br>- Replace the final fully connected layer for 4 classes<br>- Train this new output layer for 5 epochs at learning rate **0.001** |
+| 2     | **Last convolutional block + output layer**    | - Unfreeze ResNet's last convolutional block<br>- Train both the last block and the output layer for 15 epochs at learning rate **0.00001** |
+
+### Why two phases?
+
+1. **Quick head training**  
+   We first train only the new output layer (the “head”). It learns to map existing features to our classes without altering the backbone, so it’s fast and stable.
+
+2. **Gentle fine-tuning**  
+   Then we unfreeze the deepest convolutional block and train at a smaller learning rate. This refines high-level MRI-specific features without overwriting the backbone's general knowledge.
 
 ---
 
@@ -66,21 +77,20 @@ print("Data downloaded to:", path)
 python model/train.py
 ```
 
-The script:
+This script will:
 
-1. Downloads & extracts the dataset  
-2. Splits into **70 % train / 15 % val / 15 % test**  
-3. Phase 1: train head (5 epochs)  
-4. Phase 2: fine‑tune layer4 + head (15 epochs)  
-5. Saves checkpoint **and** exports to ONNX  
+1. Download & extract the dataset  
+2. Split into 70% train / 15% val / 15% test  
+3. Run Phase 1 and Phase 2 training  
+4. Save a PyTorch checkpoint **and** export the model to ONNX (`docs/model.onnx`)
 
 **Sample log**
 
 ```text
 🚀 Training on device: cuda:0
-[Head 1/5] loss=0.5234 | Val Acc=0.8125
+[Head 1/5] loss=0.5234 | Val Acc=0.8125
 …
-[FT 15/15] loss=0.1123 | Val Acc=0.9458
+[FT 15/15] loss=0.1123 | Val Acc=0.9458
 ✅ model.onnx exported to docs/model.onnx
 ```
 
@@ -92,23 +102,38 @@ The script:
 python export_onnx.py
 ```
 
-Creates `docs/model.onnx`, ready for the browser demo.
+Generates `docs/model.onnx` for the static demo.
 
 ---
 
 ## Static Demo
 
-### Live demo  
-🔗 **https://abdullahkhaja.github.io/BrainTumorClassification/** – runs 100 % in the browser.
-
-### Run locally
+A pure-static demo lives under the `docs/` folder. To test locally:
 
 ```bash
 cd docs
 python -m http.server 8000
 ```
 
-Open **http://localhost:8000**, upload an MRI scan, and get the prediction instantly.
+Open **http://localhost:8000** in your browser.
+
+---
+
+## Usage
+
+1. **Download test images**  
+   Go to the **Releases** page and download `test_samples.zip`.  
+   Unzip it to any folder.
+
+2. **Open the demo**  
+   Visit the live site:  
+   https://abdullahkhaja.github.io/BrainTumorClassification/
+
+3. **Upload an image**  
+   Click **Choose File**, select an MRI image from your unzipped folder, then click **Predict**.
+
+4. **See the result**  
+   The page will display the predicted tumor class and confidence percentage.
 
 ---
 
@@ -125,13 +150,13 @@ BrainTumorClassification/
 ├── model/
 │   ├── dataset.py       ← custom Dataset & transforms
 │   ├── predictor.py     ← PyTorch inference code
-│   └── train.py         ← two‑phase training script
-├── export_onnx.py       ← checkpoint → ONNX
+│   └── train.py         ← two-phase training script
+├── export_onnx.py       ← exports model to ONNX
 ├── extract_test_samples.py
 ├── static/              ← Flask assets (legacy)
 ├── templates/           ← Flask templates (optional)
 ├── app.py               ← optional Flask server
-└── requirements.txt
+└── requirements.txt     ← Python dependencies
 ```
 
 ---
