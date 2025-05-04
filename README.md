@@ -1,100 +1,141 @@
 # Brain Tumor Classification
 
-![Python Version](https://img.shields.io/badge/python-3.8%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green) This project implements a deep learning model to classify brain MRI scans into different tumor types using PyTorch. The dataset used is the "Brain Tumor MRI Scans" from Kaggle.
+![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+This project fine‑tunes a pretrained **ResNet‑18** in PyTorch to classify brain MRI scans into tumor types, exports the trained model to **ONNX**, and deploys a fully static in‑browser demo via **ONNX Runtime Web** on **GitHub Pages**.
+
+---
 
 ## Table of Contents
-- [Installation](#installation)
-- [Usage](#usage)
-- [Dataset](#dataset)
-- [Model Architecture](#model-architecture)
-- [Training](#training)
-- [Evaluation](#evaluation)
-- [Results](#results)
-- [Visualization](#visualization)
-- [License](#license)
+
+- [Installation](#installation)  
+- [Dataset](#dataset)  
+- [Model Architecture](#model-architecture)  
+- [Training](#training)  
+- [Export to ONNX](#export-to-onnx)  
+- [Static Demo](#static-demo)  
+- [Project Structure](#project-structure)  
+- [License](#license)  
+
+---
 
 ## Installation
-Make sure to install the necessary packages. You can use the following command:
+
 ```bash
-pip install torch torchvision kagglehub matplotlib seaborn tqdm
+git clone https://github.com/abdullahkhaja/BrainTumorClassification.git
+cd BrainTumorClassification
+pip install torch torchvision kagglehub numpy scikit-learn matplotlib seaborn tqdm onnx onnxruntime
 ```
 
-## Usage
-You can run this project in Google Colab. The dataset can be downloaded using the `kagglehub` library:
+---
+
+## Dataset
+
+The **Brain Tumor MRI Scans** dataset (Kaggle) contains four classes:
+
+| Class      | Description       |
+|------------|-------------------|
+| Glioma     | Tumor             |
+| Healthy    | No tumor present  |
+| Meningioma | Tumor             |
+| Pituitary  | Tumor             |
+
+The dataset is downloaded automatically inside `model/train.py`:
+
 ```python
 import kagglehub
 path = kagglehub.dataset_download("rm1000/brain-tumor-mri-scans")
-print("Path to dataset files:", path)
+print("Data downloaded to:", path)
 ```
 
-## Dataset
-The dataset contains MRI scans of brain tumors classified into four categories: **Glioma**, **Healthy**, **Meningioma**, and **Pituitary**. The dataset is split into training, validation, and test sets.
+---
 
 ## Model Architecture
-The model is a compact version of the VGG architecture, designed for efficient classification of MRI images. It consists of convolutional layers followed by a fully connected layer to output class predictions.
-### Code Example
-```python
-import torch
-import torch.nn as nn
 
-class BrainTumorClassifier(nn.Module):
-    def __init__(self):
-        super(BrainTumorClassifier, self).__init__()
-        # Define model layers...
+| Phase | Layers Trained   | Epochs | Learning Rate |
+|-------|------------------|--------|---------------|
+| 1     | `fc` only        |   5    | 1 × 10⁻³      |
+| 2     | `layer4` + `fc`  |  15    | 1 × 10⁻⁵      |
 
-    def forward(self, x):
-        # Define forward pass...
-```
+---
 
 ## Training
-The model is trained using Cross Entropy Loss and the Adam optimizer. The training process includes logging the training and validation loss as well as accuracy for each epoch.
-### Training Code Example
-```python
-for epoch in range(num_epochs):
-    # Training loop...
-    print(f'Epoch {epoch}, Training Loss: {train_loss}, Validation Loss: {val_loss}')
+
+```bash
+python model/train.py
 ```
 
-## Evaluation
-After training, the model is evaluated on the test set, and metrics such as loss, accuracy, F1 score, and a confusion matrix are computed.
-### Evaluation Code Example
-```python
-from sklearn.metrics import classification_report, confusion_matrix
+The script:
 
-# Evaluate on test set
-test_loss, test_accuracy = model.evaluate(test_loader)
-y_true, y_pred = [], []
-for images, labels in test_loader:
-    outputs = model(images)
-    _, predicted = torch.max(outputs.data, 1)
-    y_true.extend(labels.numpy())
-    y_pred.extend(predicted.numpy())
+1. Downloads & extracts the dataset  
+2. Splits into **70 % train / 15 % val / 15 % test**  
+3. Phase 1: train head (5 epochs)  
+4. Phase 2: fine‑tune layer4 + head (15 epochs)  
+5. Saves checkpoint **and** exports to ONNX  
 
-print(classification_report(y_true, y_pred))
-print(confusion_matrix(y_true, y_pred))
+**Sample log**
+
+```text
+🚀 Training on device: cuda:0
+[Head 1/5] loss=0.5234 | Val Acc=0.8125
+…
+[FT 15/15] loss=0.1123 | Val Acc=0.9458
+✅ model.onnx exported to docs/model.onnx
 ```
 
-## Results
-After training for 10 epochs, the model achieves a test accuracy of approximately **94.12%**.
-### Sample Output
-```
-Test Loss: 0.2610, Test Accuracy: 0.9412
+---
+
+## Export to ONNX
+
+```bash
+python export_onnx.py
 ```
 
-## Visualization
-The project includes functions to visualize the class distribution, sample images from each class, and predictions made by the model.
-### Example Visualization Code
-```python
-import matplotlib.pyplot as plt
+Creates `docs/model.onnx`, ready for the browser demo.
 
-def show_sample_images(dataset, class_names):
-    # Function to show sample images
-    for i in range(len(class_names)):
-        plt.imshow(dataset[i][0].numpy().transpose((1, 2, 0)))
-        plt.title(class_names[i])
-        plt.axis('off')
-        plt.show()
+---
+
+## Static Demo
+
+### Live demo  
+🔗 **https://abdullahkhaja.github.io/BrainTumorClassification/** – runs 100 % in the browser.
+
+### Run locally
+
+```bash
+cd docs
+python -m http.server 8000
 ```
+
+Open **http://localhost:8000**, upload an MRI scan, and get the prediction instantly.
+
+---
+
+## Project Structure
+
+```text
+BrainTumorClassification/
+├── docs/                ← static demo (index.html, model.onnx, css/)
+│   ├── index.html
+│   ├── model.onnx
+│   └── css/
+│       ├── bootstrap.min.css
+│       └── static.css
+├── model/
+│   ├── dataset.py       ← custom Dataset & transforms
+│   ├── predictor.py     ← PyTorch inference code
+│   └── train.py         ← two‑phase training script
+├── export_onnx.py       ← checkpoint → ONNX
+├── extract_test_samples.py
+├── static/              ← Flask assets (legacy)
+├── templates/           ← Flask templates (optional)
+├── app.py               ← optional Flask server
+└── requirements.txt
+```
+
+---
 
 ## License
-This project is licensed under the [MIT License](LICENSE).
+
+Distributed under the [MIT License](LICENSE).
