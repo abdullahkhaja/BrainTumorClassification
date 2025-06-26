@@ -4,12 +4,8 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Brain Tumor Classifier</title>
-
   <base href="./"/>
-
-  <!-- Bootstrap CSS -->
   <link rel="stylesheet" href="css/bootstrap.min.css"/>
-  <!-- Your custom CSS -->
   <link rel="stylesheet" href="css/static.css"/>
 </head>
 <body>
@@ -36,27 +32,18 @@
     </div>
   </div>
 
-  <!-- ONNX Runtime Web -->
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
   <script>
-    // 1) Replace with your actual classes:
-    const classNames = ["glioma","meningioma","pituitary"];
-
+    const classNames = ["glioma", "healthy", "meningioma", "pituitary"];
     const fileInput = document.getElementById("file");
     const preview   = document.getElementById("preview");
     const form      = document.getElementById("upload-form");
     const resultBox = document.getElementById("result");
     let session = null;
 
-    // 2) Load ONNX model from local file:
     async function init() {
-      try {
-        session = await ort.InferenceSession.create("model.onnx");
-        console.log("✅ ONNX model loaded");
-      } catch(e) {
-        console.error("❌ Failed to load ONNX model:", e);
-        alert("Model load error—check console");
-      }
+      session = await ort.InferenceSession.create("model.onnx");
+      console.log("✅ ONNX model loaded");
     }
 
     fileInput.addEventListener("change", () => {
@@ -71,45 +58,40 @@
       if (!session) return alert("Model not yet loaded");
 
       resultBox.className = "alert alert-warning mt-4 text-center";
-      resultBox.innerText = "⏳ Running inference…";
+      resultBox.textContent = "⏳ Running inference…";
       resultBox.classList.remove("d-none");
 
       const img = new Image();
       img.src = preview.src;
       img.onload = async () => {
-        // preprocess to Float32Array [1,3,224,224]
+        // preprocess
         const canvas = document.createElement("canvas");
         canvas.width = canvas.height = 224;
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, 224, 224);
-        const data = ctx.getImageData(0,0,224,224).data;
-        const floats = new Float32Array(1*3*224*224);
-        for (let i=0; i<224*224; i++) {
-          for (let c=0; c<3; c++) {
-            const v = data[i*4 + c]/255;
-            const mean=[0.485,0.456,0.406][c], std=[0.229,0.224,0.225][c];
-            floats[c*224*224 + i] = (v-mean)/std;
+        const data = ctx.getImageData(0, 0, 224, 224).data;
+        const floats = new Float32Array(1 * 3 * 224 * 224);
+        for (let i = 0; i < 224*224; i++) {
+          for (let c = 0; c < 3; c++) {
+            const v = data[i*4 + c] / 255;
+            const mean = [0.485, 0.456, 0.406][c];
+            const std  = [0.229, 0.224, 0.225][c];
+            floats[c*224*224 + i] = (v - mean) / std;
           }
         }
 
-        // robust tensor constructor fallback
-        let tensor;
-        try {
-          tensor = new ort.Tensor([1,3,224,224], floats);
-        } catch {
-          try {
-            tensor = new ort.Tensor(floats, [1,3,224,224]);
-          } catch {
-            tensor = new ort.Tensor("float32",[1,3,224,224], floats);
-          }
-        }
+        // dims must be a plain number array
+        const dims = [1, 3, 224, 224];
+        console.log("DEBUG dims:", dims, Array.isArray(dims));
+
+        // TWO-ARGUMENT overload: (data, dims)
+        const tensor = new ort.Tensor(floats, dims);
 
         try {
-          const { logits } = await session.run({ image: tensor });
-          const arr = logits.data;
-          // softmax + argmax
-          let max=-Infinity, idx=0;
-          arr.forEach((v,i)=>{ if(v>max){max=v;idx=i;} });
+          const outputs = await session.run({ image: tensor });
+          const arr = outputs.logits.data;
+          let max = -Infinity, idx = 0;
+          arr.forEach((v,i)=>{ if(v>max){max=v; idx=i;} });
           const exps = arr.map(v=>Math.exp(v-max));
           const sum  = exps.reduce((a,b)=>a+b,0);
           const conf = ((exps[idx]/sum)*100).toFixed(1);
